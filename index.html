@@ -532,9 +532,53 @@ main.active {
   .artists-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
   .carousel-item { width: 180px; flex-basis: 180px; }
 }
+  /* ================= ПОДПИСКА ================= */
+  #subscriptionGate {
+    position: fixed; inset: 0; z-index: 20000; display: none; overflow-y: auto;
+    align-items: center; justify-content: center; padding: 20px;
+    background: radial-gradient(circle at 50% 0%, rgba(0,210,106,.14), transparent 45%), #090b09;
+  }
+  #subscriptionGate.active { display: flex; }
+  .subscription-card {
+    width: min(100%, 430px); padding: 24px; border: 1px solid rgba(0,210,106,.28);
+    border-radius: 24px; background: rgba(20,22,20,.97); box-shadow: 0 20px 70px rgba(0,0,0,.55);
+  }
+  .subscription-card h1 { font-size: 1.5rem; margin: 12px 0 6px; }
+  .subscription-card > p { color: var(--muted); font-size: .86rem; line-height: 1.5; }
+  .subscription-plan { display:flex; justify-content:space-between; align-items:center; gap:12px; margin-top:10px; padding:14px; border-radius:14px; background:var(--surface2); }
+  .subscription-plan b { font-size:1.05rem; }
+  .subscription-plan span { color:var(--muted); font-size:.75rem; }
+  .subscription-contact { display:flex; width:100%; margin-top:16px; text-align:center; text-decoration:none; }
+  .subscription-divider { margin:18px 0 12px; color:var(--muted); font-size:.75rem; text-align:center; }
+  #activationKey { width:100%; padding:13px 14px; border:1px solid var(--border); border-radius:12px; background:#101010; color:#fff; font:inherit; text-transform:uppercase; letter-spacing:1px; outline:none; user-select:text; }
+  #activationKey:focus { border-color:var(--green); }
+  #activateKeyBtn { width:100%; margin-top:9px; }
+  #activationMessage { min-height:1.3em; margin-top:10px; font-size:.78rem; text-align:center; }
+  #activationMessage.error { color:#ff766e; }
+  #activationMessage.success { color:var(--green); }
+  .subscription-note { margin-top:14px; font-size:.68rem!important; }
 </style>
 </head>
 <body>
+
+<div id="subscriptionGate" role="dialog" aria-modal="true" aria-labelledby="subscriptionTitle">
+  <section class="subscription-card">
+    <div class="logo" aria-label="TatarWave">TATAR<span>WAVE</span></div>
+    <h1 id="subscriptionTitle">Подписка TatarWave</h1>
+    <p>Чтобы слушать музыку, оформите доступ. После оплаты автор пришлёт вам ключ активации.</p>
+    <div class="subscription-plan"><div><b>1 месяц</b><br><span>доступ к музыке</span></div><strong>100 ₽</strong></div>
+    <div class="subscription-plan"><div><b>3 месяца</b><br><span>выгоднее на 41 ₽</span></div><strong>259 ₽</strong></div>
+    <a id="subscriptionContact" class="btn btn-primary subscription-contact" href="https://max.ru/u/f9LHodD0cOIgxQKMLGIci8vGt2Kaf-zQnVwHd6qttVsDnIOPOpVWZhC8ztE" target="_blank" rel="noopener noreferrer">Связаться с автором</a>
+    <p class="subscription-divider">Уже есть ключ?</p>
+    <form id="activationForm" novalidate>
+      <label for="activationKey" class="storage-note">Ключ активации</label>
+      <input id="activationKey" name="key" type="text" maxlength="32" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" placeholder="XXXX-XXXX-XXXX-XXXX" required>
+      <button id="activateKeyBtn" class="btn btn-primary" type="submit">Активировать</button>
+      <div id="activationMessage" role="status" aria-live="polite"></div>
+    </form>
+    <p class="subscription-note">Подписка действует на этом браузере. Не очищайте данные сайта. Для защиты от повторного использования ключи необходимо выдавать только одному человеку и вести список выданных ключей.</p>
+  </section>
+</div>
 
 <canvas id="bgCanvas" aria-hidden="true"></canvas>
 <div class="bg-glow-dynamic" id="bgGlowDynamic"></div>
@@ -694,6 +738,10 @@ main.active {
   <div style="padding:0 4% 10px;display:flex;gap:8px;flex-wrap:wrap">
     <button class="chip" id="openWrappedBtn2" type="button">Wrapped карау</button>
     <button class="chip" id="resetDataBtn" type="button" style="color:#ff6b6b;border-color:rgba(255,107,107,.35)">Мәгълүматларны чистарту</button>
+  </div>
+  <div class="section-title">Подписка <span id="subscriptionStatus">Подписка неактивна</span></div>
+  <div style="padding:0 4% 10px;display:flex;gap:8px;flex-wrap:wrap">
+    <button class="chip" id="openSubscriptionBtn" type="button">Оформить подписку</button>
   </div>
   <div class="credits">TatarWave · 128 җыр · мәгълүматлар браузерда саклана</div>
 </main>
@@ -1077,6 +1125,7 @@ main.active {
   const BACKUP_KEY = 'tatar_wave_backup_v2';
   const SETTINGS_KEY = 'tatar_wave_settings';
   const LYRICS_KEY = 'tatar_wave_lyrics_v1';
+  const SUBSCRIPTION_KEY = 'tatar_wave_subscription_v1';
   const DB_NAME = 'TatarWaveStorage';
   const DB_STORE = 'snapshots';
   const MAX_BACKUPS = 8;
@@ -2726,7 +2775,7 @@ main.active {
       const keys = [];
       for (let i = 0; i < localStorage.length; i++) {
         const key = localStorage.key(i);
-        if (key && key.indexOf('tatar_wave') === 0) keys.push(key);
+        if (key && key.indexOf('tatar_wave') === 0 && key !== SUBSCRIPTION_KEY && key !== USED_KEYS_KEY) keys.push(key);
       }
       keys.forEach(key => { try { localStorage.removeItem(key); } catch (_) {} });
     } catch (_) {}
@@ -2869,8 +2918,186 @@ main.active {
   });
 
   // ================================================================
+  // ПОДПИСКА
+  // ================================================================
+  // 40 уникальных ключей. В коде хранятся только SHA-256 хэши, поэтому сами
+  // ключи нельзя прочитать из исходников страницы. Срок указан в днях.
+  const SUBSCRIPTION_KEYS = {
+    '3d68500e0c9cbf76b4760a714ca8e12bd3118ad977c39d72704de3b3207ba4b8': 30,
+    'a7924eee3dda8eef97382afedacc64a095a88891f5b8881f94bd13680df3bf2f': 30,
+    'e8f6d2f915854869c13e617a0c989ab44a6dcf3d550555a9967922bd3a7e9079': 30,
+    '03596986206401d1e08be35eca726c34041aba87de4211ced066d2a6be4429ba': 30,
+    '024ddf2d256273189c278e0c7855e55341528c3bccb6d3cbdb6ea39d9b7e7b4d': 30,
+    'ebf4d909912240694e044cfe695ea4b5b93f4349b94d1388a4f81e0a17e373c6': 30,
+    '65a17c7a11aeef6468ee482ec55171ea05ac1aca66b7306674c60c4a79389771': 30,
+    'fea2d9beafa736c3f862c701cb88b750fca1381d22f0663b1baf00afb2a6a2b4': 30,
+    '877ddc48436ba551140395e7aaa69a1435dda29953fb795a7bb16c9f2f9e7e08': 30,
+    '3ee35adbad6603746c7503380fe6d941dc75b2dd476285075314153b5409e177': 30,
+    'bc66cc371048f7c11030583d8e1dba1c3e6d0f249d915a11f66d0ccb5596b772': 30,
+    '1464fb5319c9054220498e0dc457440da0b0bc380945a3771d054e1abdb72979': 30,
+    'a5204926781d53a371812f29eed71641fd146f5f72ecc1bad196ee2b23cf2ed5': 30,
+    '983b843432b5a142774390da716edc21479547befb15f047f4971956323732e0': 30,
+    '711b0d0cfa3f93c782e4ecebb1c77d49476e4ee42da8ab33c787cc6cb877f4c8': 30,
+    '4a1684f4fdb3712f0f9cd3d58fca65b7b35b24685c95d42712c7dd392f5d3b8e': 30,
+    '2ed901516d4506f2fb801969ea49af7415309b17270057f81a66bb05a16de67e': 30,
+    '385d8ad48f085aaec344be6d1d6dc9532e3c3d8e37822c948c07b769898f9277': 30,
+    '75532ef48d51ef30da980fee6538e385adaae02bfed9ac097032ca9a8b0f6373': 30,
+    '41b5ad9ca46fd67ae644031df3ab5293bb4fe6fa2e03a1ed3ba37e7b634ed8f4': 30,
+    '7834cb1dbbcf8d283267001fc95aa51ab4b43d0ac42a89c06829c04ca54755d1': 90,
+    '888d5d8fc0927287949025bbd61dfddb075348c549e98c432b74a314e791f8fc': 90,
+    '9529a91486cb0d9a47551386ec6879e1523e81ff47eadf241cad5dca0724bbe0': 90,
+    'a81c29566b8f41bf8f1c630f866adceec8155cc3844121ca9f3fa1e82a75628e': 90,
+    '14fe68aba5538a95607663ba7f5a74dc0df10e44a39ca87fa33c7031c29fb4c4': 90,
+    '9af4f2deed9392e6cb070f0fbe2ff8f07c3a9b0e30e6a969671ffae584f20298': 90,
+    'dfc1dc7be6ce458010c6775b8e394d43da8ea7010ed7df0452e9d8e37cd643b3': 90,
+    '2dde06984844f3c8b7397cb847af921ac027a6b4de570ace2d94790d33f2fb9a': 90,
+    'ea416fdd9138ae7c587233d40fcedfebd715460f59a6dcd74545dedb30acc8c3': 90,
+    '095aa640f2d6b8568ec313676e531195a3e2ef53abe013b814360039ec52482b': 90,
+    '0f78611b1a55d7ac00963bfada6e05d676f3b4badfb1af8a0f6e8eb53b68d746': 90,
+    '2249eb709d697b4f75de7322f4675830386331433a98679165ba29f08b17441a': 90,
+    '86d4a9583d75a8e42cf507590c6d647f903955097daa1fcb175706f808f4f3d4': 90,
+    '8497a051a14b0aca02937e91485d693beecfbbec43dd7cd09c82a02be0c72f8b': 90,
+    'ecaa8149df7f6bab13275c3b7b297bfa99fab9df2b7e1327a8c470df9090232c': 90,
+    'fab2f8533ae4b7b2050838bba08935a19c095262d6b1a6f14fee1a0f7c854da7': 90,
+    '9d0fb63ecf18cfc872f59f806ab93b87e8ef676aaff984e587191536b6490d9d': 90,
+    '1d8507abc470652d6a577a40bae5e0d6302568ee59c54fc35c13188fd3ebfaa1': 90,
+    '91146f6dc30424e75a5454e85572e597cda98212aff87cc0d59299cb359531bf': 90,
+    '77ad6055fad1d3175e617fdca4f72525f3cba4300eb8e9370b85f460abaee697': 90
+  };
+  const USED_KEYS_KEY = 'tatar_wave_used_keys_v1';
+
+  function normalizeActivationKey(value) {
+    return String(value || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+  function formatActivationKey(value) {
+    const clean = normalizeActivationKey(value).slice(0, 16);
+    return clean.replace(/(.{4})(?=.)/g, '$1-');
+  }
+  async function hashActivationKey(key) {
+    if (!window.crypto || !window.crypto.subtle) return null;
+    try {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(key));
+      return Array.from(new Uint8Array(digest)).map(byte => byte.toString(16).padStart(2, '0')).join('');
+    } catch (_) { return null; }
+  }
+  function getSubscription() {
+    const stored = safeJSON(SUBSCRIPTION_KEY, null);
+    if (!stored || typeof stored !== 'object') return null;
+    const expiresAt = Number(stored.expiresAt);
+    if (!Number.isFinite(expiresAt)) return null;
+    return { keyHash: String(stored.keyHash || ''), activatedAt: Number(stored.activatedAt) || 0, expiresAt };
+  }
+  function subscriptionActive() {
+    const subscription = getSubscription();
+    return !!subscription && subscription.expiresAt > Date.now();
+  }
+  function formatSubscriptionDate(timestamp) {
+    try { return new Date(timestamp).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' }); }
+    catch (_) { return new Date(timestamp).toISOString().slice(0, 10); }
+  }
+  function openSubscriptionGate() {
+    const gate = $('subscriptionGate');
+    if (!gate) return;
+    gate.classList.add('active');
+    document.body.style.overflow = 'hidden';
+    const subscription = getSubscription();
+    if (subscription && subscription.expiresAt > Date.now()) {
+      $('activationMessage').className = 'success';
+      $('activationMessage').textContent = `Подписка активна до ${formatSubscriptionDate(subscription.expiresAt)}.`;
+    } else if (subscription) {
+      $('activationMessage').className = 'error';
+      $('activationMessage').textContent = `Срок действия истёк ${formatSubscriptionDate(subscription.expiresAt)}. Введите новый ключ.`;
+    }
+  }
+  function closeSubscriptionGate() {
+    const gate = $('subscriptionGate');
+    if (gate) gate.classList.remove('active');
+    document.body.style.overflow = '';
+  }
+  function updateSubscriptionStatus() {
+    const subscription = getSubscription();
+    const el = $('subscriptionStatus');
+    if (!el) return;
+    if (!subscription) { el.textContent = 'Подписка неактивна'; return; }
+    const days = Math.max(0, Math.ceil((subscription.expiresAt - Date.now()) / 86400000));
+    el.textContent = subscription.expiresAt > Date.now()
+      ? `Подписка активна до ${formatSubscriptionDate(subscription.expiresAt)} (${days} дн.)`
+      : `Подписка истекла ${formatSubscriptionDate(subscription.expiresAt)}`;
+  }
+  async function activateSubscriptionKey(rawKey) {
+    const message = $('activationMessage');
+    message.className = '';
+    const formatted = formatActivationKey(rawKey);
+    if (normalizeActivationKey(formatted).length !== 16) {
+      message.className = 'error';
+      message.textContent = 'Ключ должен состоять из 16 символов, например XXXX-XXXX-XXXX-XXXX.';
+      return false;
+    }
+    const keyHash = await hashActivationKey(formatted);
+    if (!keyHash) {
+      message.className = 'error';
+      message.textContent = 'Для активации откройте сайт по адресу https:// (или localhost).';
+      return false;
+    }
+    const durationDays = SUBSCRIPTION_KEYS[keyHash];
+    if (!durationDays) {
+      message.className = 'error';
+      message.textContent = 'Ключ не найден. Проверьте ввод или обратитесь к автору.';
+      return false;
+    }
+    const usedKeys = safeJSON(USED_KEYS_KEY, []);
+    const usedList = Array.isArray(usedKeys) ? usedKeys : [];
+    const current = getSubscription();
+    if (usedList.includes(keyHash) && (!current || current.keyHash !== keyHash)) {
+      message.className = 'error';
+      message.textContent = 'Этот ключ уже использован. Нужен новый ключ.';
+      return false;
+    }
+    const startedAt = current && current.keyHash === keyHash && current.expiresAt > Date.now()
+      ? current.expiresAt : Date.now();
+    const expiresAt = startedAt + durationDays * 86400000;
+    safeSet(SUBSCRIPTION_KEY, JSON.stringify({ keyHash, activatedAt: Date.now(), expiresAt }));
+    if (!usedList.includes(keyHash)) {
+      usedList.push(keyHash);
+      safeSet(USED_KEYS_KEY, JSON.stringify(usedList.slice(-200)));
+    }
+    $('activationKey').value = '';
+    closeSubscriptionGate();
+    updateSubscriptionStatus();
+    showToast(`Подписка активирована до ${formatSubscriptionDate(expiresAt)}.`);
+    return true;
+  }
+
+  $('activationForm').addEventListener('submit', async event => {
+    event.preventDefault();
+    const button = $('activateKeyBtn');
+    button.disabled = true;
+    try { await activateSubscriptionKey($('activationKey').value); }
+    finally { button.disabled = false; }
+  });
+  $('activationKey').addEventListener('input', event => {
+    event.target.value = formatActivationKey(event.target.value);
+  });
+  $('subscriptionContact').addEventListener('click', () => {
+    try {
+      const pending = navigator.clipboard && navigator.clipboard.writeText('Хочу приобрести подписку');
+      if (pending) pending.then(() => showToast('Сообщение скопировано — вставьте его в чат с автором.')).catch(() => {});
+    } catch (_) {}
+  });
+
+  function enforceSubscription() {
+    if (subscriptionActive()) { closeSubscriptionGate(); updateSubscriptionStatus(); return; }
+    openSubscriptionGate();
+  }
+
+  const openSubscriptionBtn = $('openSubscriptionBtn');
+  if (openSubscriptionBtn) openSubscriptionBtn.addEventListener('click', () => openSubscriptionGate());
+
+  // ================================================================
   // ИНИЦИАЛИЗАЦИЯ
   // ================================================================
+  enforceSubscription();
+  updateSubscriptionStatus();
   updateVolumeUI();
   initDailyAudio();
   renderHistoryCarousel();

@@ -1,8 +1,9 @@
-﻿# TatarWave — исходники, которые не нужны в репозитории
+# TatarWave — исходники, которые не нужны в репозитории
 music/a/
 cover/*.png
 cover/*.jpg
 tools/
+activation-keys.private.json
 massiv.txt
 .DS_Store
 Thumbs.db
